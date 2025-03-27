@@ -7,7 +7,12 @@ interface CricketBatProps {
   className?: string;
   onClick?: () => void;
   onDrag?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void;
-  dragConstraints?: React.RefObject<HTMLDivElement>;
+  dragConstraints?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  } | React.RefObject<HTMLDivElement>;
 }
 
 const CricketBat: React.FC<CricketBatProps> = ({ 
