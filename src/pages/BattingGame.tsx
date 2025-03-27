@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,26 +20,22 @@ const BattingGame = () => {
   const [scores, setScores] = useState<number[]>([]);
   const [countdown, setCountdown] = useState(3);
   const [gameStarted, setGameStarted] = useState(false);
-  const [showBall, setShowBall] = useState(true); // Ball is visible by default
+  const [showBall, setShowBall] = useState(true);
   const [batSwung, setBatSwung] = useState(false);
   const [ballReleased, setBallReleased] = useState(false);
   const [ballTimer, setBallTimer] = useState(5);
-  const [fieldSize, setFieldSize] = useState(0); // Track the field size
-  
+  const [fieldSize, setFieldSize] = useState(0);
   const controls = useAnimation();
   const batRef = useRef<HTMLDivElement>(null);
   const ballRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
-  
-  // Adjusted speed map for better gameplay
-  // These are relative speeds based on the field size, not actual km/h
+
   const speedMap = {
-    'easy': { min: 1.8, max: 2.2 },
-    'medium': { min: 1.4, max: 1.8 },
-    'hard': { min: 1.0, max: 1.4 }
+    'easy': { min: 3.5, max: 4.0 },
+    'medium': { min: 2.8, max: 3.3 },
+    'hard': { min: 2.2, max: 2.7 }
   };
 
-  // Measure the field size when the component mounts or window resizes
   useEffect(() => {
     const updateFieldSize = () => {
       if (fieldRef.current) {
@@ -57,11 +52,10 @@ const BattingGame = () => {
     };
   }, []);
 
-  // Handle going back to home
   const handleBackToHome = () => {
     navigate('/');
   };
-  
+
   useEffect(() => {
     const [bowler] = getRandomPlayers('bowler', difficulty as Difficulty);
     setOpponent(bowler);
@@ -79,7 +73,7 @@ const BattingGame = () => {
     
     return () => clearInterval(timer);
   }, [difficulty]);
-  
+
   const startNewBall = () => {
     if (currentBall >= 6) {
       navigate('/results/batting', { 
@@ -97,14 +91,13 @@ const BattingGame = () => {
     setBatSwung(false);
     setBallReleased(true);
     
-    // Calculate ball speed based on field size
-    // The larger the field, the slower the ball should move (in relative time)
     const difficultySettings = speedMap[difficulty as keyof typeof speedMap];
     const baseSpeed = difficultySettings.min + Math.random() * (difficultySettings.max - difficultySettings.min);
     
-    // Adjust speed based on field size (smaller screens get slightly slower speeds)
-    const sizeAdjustment = fieldSize > 0 ? Math.max(0.8, Math.min(1.2, 300 / fieldSize)) : 1;
+    const sizeAdjustment = fieldSize > 0 ? Math.max(1.0, Math.min(1.5, 400 / fieldSize)) : 1;
     const ballSpeed = baseSpeed * sizeAdjustment;
+    
+    console.log(`Field size: ${fieldSize}, Ball speed: ${ballSpeed}s`);
     
     const randomHorizontal = Math.random() * 60 - 30;
     
@@ -114,7 +107,7 @@ const BattingGame = () => {
       rotate: [0, 720],
       transition: { 
         duration: ballSpeed,
-        ease: "easeIn"
+        ease: "linear"
       }
     }).then(() => {
       if (!batSwung) {
@@ -124,10 +117,10 @@ const BattingGame = () => {
       setIsPlaying(false);
       setBallReleased(false);
       setCurrentBall(prev => prev + 1);
-      setBallTimer(5); // Reset timer for next ball
+      setBallTimer(5);
     });
   };
-  
+
   const handleBatDrag = (_: any, info: any) => {
     if (!isPlaying || batSwung) return;
     
@@ -135,7 +128,6 @@ const BattingGame = () => {
       const ballRect = ballRef.current.getBoundingClientRect();
       const batRect = batRef.current.getBoundingClientRect();
       
-      // Check if bat has hit the ball
       const batCenterX = batRect.left + batRect.width / 2;
       const batCenterY = batRect.top + batRect.height / 2;
       const ballCenterX = ballRect.left + ballRect.width / 2;
@@ -146,11 +138,9 @@ const BattingGame = () => {
         Math.pow(batCenterY - ballCenterY, 2)
       );
       
-      // If the bat is close enough to the ball
       if (distance < 50 && !batSwung) {
         setBatSwung(true);
         
-        // Calculate score based on timing
         const verticalDistance = Math.abs(ballCenterY - batCenterY);
         const perfectDistance = 20;
         const tolerance = 30;
@@ -159,7 +149,6 @@ const BattingGame = () => {
         
         setScores(prev => [...prev, timingScore]);
         
-        // Animate ball when hit
         controls.start({
           x: [0, timingScore > 3 ? 300 : 100, -100],
           y: [0, -100, 200],
@@ -172,8 +161,7 @@ const BattingGame = () => {
       }
     }
   };
-  
-  // Timer between balls
+
   useEffect(() => {
     if (gameStarted && !isPlaying && currentBall < 6 && !ballReleased) {
       const timer = setInterval(() => {
@@ -190,10 +178,9 @@ const BattingGame = () => {
       return () => clearInterval(timer);
     }
   }, [gameStarted, isPlaying, currentBall, ballReleased]);
-  
+
   return (
     <div className="min-h-screen w-full flex flex-col items-center relative bg-gradient-to-b from-ipl-blue via-ipl-purple to-black">
-      {/* Back button */}
       <Button 
         variant="ghost" 
         size="icon" 
@@ -232,7 +219,7 @@ const BattingGame = () => {
           ) : !isPlaying && !ballReleased ? (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
               <motion.div 
-                className="text-2xl font-bold text-white"
+                className="text-4xl font-bold text-white"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.5, opacity: 0 }}
@@ -242,14 +229,13 @@ const BattingGame = () => {
             </div>
           ) : null}
           
-          {/* Always show the ball at the top before it's bowled */}
           {showBall && (
             <motion.div 
               ref={ballRef}
               className="absolute top-[10%] left-1/2 -translate-x-1/2 z-10"
               animate={isPlaying ? controls : undefined}
             >
-              <CricketBall animated={!isPlaying} />
+              <CricketBall animated={!isPlaying} className="shadow-[0_0_20px_rgba(255,0,0,0.4)]" />
             </motion.div>
           )}
           

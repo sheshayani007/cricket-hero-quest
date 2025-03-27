@@ -28,9 +28,11 @@ const CricketBall: React.FC<CricketBallProps> = ({
       whileTap={{ scale: 0.9 }}
       onClick={onClick}
     >
+      {/* Enhanced seam lines for better visibility */}
       <div className="absolute w-full h-full rounded-full">
-        <div className="absolute w-[40%] h-[1.5px] bg-white top-[50%] left-[30%] rotate-[30deg]"></div>
-        <div className="absolute w-[40%] h-[1.5px] bg-white top-[50%] left-[30%] rotate-[150deg]"></div>
+        <div className="absolute w-[40%] h-[2px] bg-white top-[50%] left-[30%] rotate-[30deg]"></div>
+        <div className="absolute w-[40%] h-[2px] bg-white top-[50%] left-[30%] rotate-[150deg]"></div>
+        <div className="absolute w-[40%] h-[2px] bg-white top-[50%] left-[30%] rotate-[90deg]"></div>
       </div>
     </motion.div>
   );
