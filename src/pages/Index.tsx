@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Cricket, GripHorizontal } from 'lucide-react';
+import { Activity, GripHorizontal } from 'lucide-react';
 import GameModeCard from '@/components/GameModeCard';
 import { Difficulty } from '@/components/DifficultySelector';
 import { GameMode } from '@/components/GameModeCard';
@@ -30,7 +30,7 @@ const Index = () => {
         transition={{ duration: 0.8, type: "spring" }}
       >
         <div className="inline-block mb-4">
-          <Cricket className="h-16 w-16 text-white animate-bounce-soft" />
+          <Activity className="h-16 w-16 text-white animate-bounce-soft" />
         </div>
         <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-2">
           Which IPL Player Are You?
@@ -56,7 +56,7 @@ const Index = () => {
           mode="bowling"
           title="Bowling"
           description="Bowl your best deliveries and discover which IPL bowler you resemble!"
-          icon={<Cricket className="h-6 w-6 text-ipl-purple" />}
+          icon={<Activity className="h-6 w-6 text-ipl-purple" />}
           selectedDifficulty={bowlingDifficulty}
           onSelectDifficulty={setBowlingDifficulty}
           onStart={() => handleStartGame('bowling')}
