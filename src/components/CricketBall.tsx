@@ -20,7 +20,7 @@ const CricketBall: React.FC<CricketBallProps> = ({
     <motion.div 
       className={cn(
         "relative cursor-pointer w-12 h-12 rounded-full bg-red-600 shadow-lg flex items-center justify-center",
-        "border-2 border-white/20 shadow-xl",
+        "border-2 border-white/40 shadow-[0_0_15px_rgba(255,255,255,0.3)]",
         animated && "animate-spin-slow",
         className
       )}

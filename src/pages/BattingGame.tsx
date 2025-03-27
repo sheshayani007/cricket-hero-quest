@@ -25,6 +25,7 @@ const BattingGame = () => {
   const [batSwung, setBatSwung] = useState(false);
   const [ballReleased, setBallReleased] = useState(false);
   const [ballTimer, setBallTimer] = useState(5);
+  const [fieldSize, setFieldSize] = useState(0); // Track the field size
   
   const controls = useAnimation();
   const batRef = useRef<HTMLDivElement>(null);
@@ -32,11 +33,29 @@ const BattingGame = () => {
   const fieldRef = useRef<HTMLDivElement>(null);
   
   // Adjusted speed map for better gameplay
+  // These are relative speeds based on the field size, not actual km/h
   const speedMap = {
-    'easy': { min: 3, max: 4 },
-    'medium': { min: 2.5, max: 3.5 },
-    'hard': { min: 2, max: 3 }
+    'easy': { min: 1.8, max: 2.2 },
+    'medium': { min: 1.4, max: 1.8 },
+    'hard': { min: 1.0, max: 1.4 }
   };
+
+  // Measure the field size when the component mounts or window resizes
+  useEffect(() => {
+    const updateFieldSize = () => {
+      if (fieldRef.current) {
+        const fieldRect = fieldRef.current.getBoundingClientRect();
+        setFieldSize(Math.min(fieldRect.width, fieldRect.height));
+      }
+    };
+    
+    updateFieldSize();
+    window.addEventListener('resize', updateFieldSize);
+    
+    return () => {
+      window.removeEventListener('resize', updateFieldSize);
+    };
+  }, []);
 
   // Handle going back to home
   const handleBackToHome = () => {
@@ -78,8 +97,14 @@ const BattingGame = () => {
     setBatSwung(false);
     setBallReleased(true);
     
-    const speed = speedMap[difficulty as keyof typeof speedMap];
-    const ballSpeed = speed.min + Math.random() * (speed.max - speed.min);
+    // Calculate ball speed based on field size
+    // The larger the field, the slower the ball should move (in relative time)
+    const difficultySettings = speedMap[difficulty as keyof typeof speedMap];
+    const baseSpeed = difficultySettings.min + Math.random() * (difficultySettings.max - difficultySettings.min);
+    
+    // Adjust speed based on field size (smaller screens get slightly slower speeds)
+    const sizeAdjustment = fieldSize > 0 ? Math.max(0.8, Math.min(1.2, 300 / fieldSize)) : 1;
+    const ballSpeed = baseSpeed * sizeAdjustment;
     
     const randomHorizontal = Math.random() * 60 - 30;
     
@@ -172,7 +197,7 @@ const BattingGame = () => {
       <Button 
         variant="ghost" 
         size="icon" 
-        className="absolute top-4 left-4 text-white z-10"
+        className="absolute top-4 left-4 text-white z-10 bg-black/30 hover:bg-black/50"
         onClick={handleBackToHome}
       >
         <ArrowLeft className="h-6 w-6" />
@@ -207,7 +232,7 @@ const BattingGame = () => {
           ) : !isPlaying && !ballReleased ? (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
               <motion.div 
-                className="text-4xl font-bold text-white"
+                className="text-2xl font-bold text-white"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.5, opacity: 0 }}
@@ -218,15 +243,15 @@ const BattingGame = () => {
           ) : null}
           
           {/* Always show the ball at the top before it's bowled */}
-          {showBall ? (
+          {showBall && (
             <motion.div 
               ref={ballRef}
-              className="absolute top-[10%] left-1/2 -translate-x-1/2"
+              className="absolute top-[10%] left-1/2 -translate-x-1/2 z-10"
               animate={isPlaying ? controls : undefined}
             >
               <CricketBall animated={!isPlaying} />
             </motion.div>
-          ) : null}
+          )}
           
           <div 
             ref={batRef}
