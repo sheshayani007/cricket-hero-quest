@@ -19,7 +19,8 @@ const CricketBall: React.FC<CricketBallProps> = ({
   return (
     <motion.div 
       className={cn(
-        "relative cursor-pointer w-10 h-10 rounded-full bg-red-600 shadow-lg flex items-center justify-center",
+        "relative cursor-pointer w-12 h-12 rounded-full bg-red-600 shadow-lg flex items-center justify-center",
+        "border-2 border-white/20 shadow-xl",
         animated && "animate-spin-slow",
         className
       )}
@@ -28,8 +29,8 @@ const CricketBall: React.FC<CricketBallProps> = ({
       onClick={onClick}
     >
       <div className="absolute w-full h-full rounded-full">
-        <div className="absolute w-[40%] h-[1px] bg-white top-[50%] left-[30%] rotate-[30deg]"></div>
-        <div className="absolute w-[40%] h-[1px] bg-white top-[50%] left-[30%] rotate-[150deg]"></div>
+        <div className="absolute w-[40%] h-[1.5px] bg-white top-[50%] left-[30%] rotate-[30deg]"></div>
+        <div className="absolute w-[40%] h-[1.5px] bg-white top-[50%] left-[30%] rotate-[150deg]"></div>
       </div>
     </motion.div>
   );
