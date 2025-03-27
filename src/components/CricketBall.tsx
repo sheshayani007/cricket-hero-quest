@@ -16,17 +16,15 @@ const CricketBall: React.FC<CricketBallProps> = ({
   onClick,
   animated = false
 }) => {
-  const speedMultiplier = speed === 'slow' ? 1.5 : speed === 'medium' ? 1 : 0.7;
-  
   return (
     <motion.div 
       className={cn(
-        "relative cursor-pointer w-12 h-12 rounded-full bg-red-600 shadow-lg flex items-center justify-center",
+        "relative cursor-pointer w-10 h-10 rounded-full bg-red-600 shadow-lg flex items-center justify-center",
         animated && "animate-spin-slow",
         className
       )}
       whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.9, rotate: 720, transition: { duration: 0.8 } }}
+      whileTap={{ scale: 0.9 }}
       onClick={onClick}
     >
       <div className="absolute w-full h-full rounded-full">

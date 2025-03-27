@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -26,20 +25,16 @@ const BattingGame = () => {
   const batRef = useRef<HTMLDivElement>(null);
   const ballRef = useRef<HTMLDivElement>(null);
   
-  // Speed mapping based on difficulty
   const speedMap = {
     'easy': { min: 2, max: 3 },
     'medium': { min: 1.5, max: 2.5 },
     'hard': { min: 1, max: 2 }
   };
   
-  // Initialize game
   useEffect(() => {
-    // Get random bowler based on difficulty
     const [bowler] = getRandomPlayers('bowler', difficulty as Difficulty);
     setOpponent(bowler);
     
-    // Start countdown
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -54,10 +49,8 @@ const BattingGame = () => {
     return () => clearInterval(timer);
   }, [difficulty]);
   
-  // Start a new ball
   const startNewBall = () => {
     if (currentBall >= 6) {
-      // Game over, navigate to results
       navigate('/results/batting', { 
         state: { 
           scores, 
@@ -72,22 +65,21 @@ const BattingGame = () => {
     setShowBall(true);
     setBatSwung(false);
     
-    // Get random speed based on difficulty
     const speed = speedMap[difficulty as keyof typeof speedMap];
     const ballSpeed = speed.min + Math.random() * (speed.max - speed.min);
     
-    // Animate ball
+    const randomHorizontal = Math.random() * 60 - 30;
+    
     controls.start({
-      y: ['0%', '100%'],
+      y: ['-60vh', '75vh'],
+      x: [randomHorizontal, randomHorizontal],
       rotate: [0, 720],
       transition: { 
         duration: ballSpeed,
         ease: "easeIn"
       }
     }).then(() => {
-      // Ball reached the bat
       if (!batSwung) {
-        // Missed!
         setScores(prev => [...prev, 0]);
       }
       setShowBall(false);
@@ -96,29 +88,23 @@ const BattingGame = () => {
     });
   };
   
-  // Handle bat swing
   const handleBatSwing = () => {
     if (!isPlaying || batSwung) return;
     
     setBatSwung(true);
     
-    // Calculate timing
-    // For simplicity, we'll use a rough distance calculation
-    // In a real game, this would be much more sophisticated
     if (ballRef.current && batRef.current) {
       const ballRect = ballRef.current.getBoundingClientRect();
       const batRect = batRef.current.getBoundingClientRect();
       
       const distance = Math.abs((ballRect.top + ballRect.height/2) - batRect.top);
-      const perfectDistance = 50; // Arbitrary "perfect" distance
-      const tolerance = 30; // Arbitrary tolerance
+      const perfectDistance = 50;
+      const tolerance = 30;
       
-      // Score is between 0-6 based on timing
       const timingScore = Math.max(0, 6 - Math.floor(Math.abs(distance - perfectDistance) / tolerance));
       
       setScores(prev => [...prev, timingScore]);
       
-      // Visual feedback
       controls.start({
         x: [0, timingScore > 3 ? 300 : 100, -100],
         y: [0, -100, 200],
@@ -131,10 +117,8 @@ const BattingGame = () => {
     }
   };
   
-  // Between-ball timer
   useEffect(() => {
     if (gameStarted && !isPlaying && currentBall < 6) {
-      // Wait a moment before next ball
       const timer = setTimeout(() => {
         startNewBall();
       }, 3000);
@@ -145,7 +129,6 @@ const BattingGame = () => {
   
   return (
     <div className="min-h-screen w-full flex flex-col items-center relative">
-      {/* Game stats header */}
       <div className="w-full p-4 flex justify-between items-center">
         <div className="glass-card px-4 py-2 rounded-lg">
           <h2 className="text-white font-bold">Facing: {opponent?.name || 'Bowler'}</h2>
@@ -158,10 +141,8 @@ const BattingGame = () => {
         />
       </div>
       
-      {/* Cricket field */}
-      <div className="flex-1 w-full max-w-3xl relative">
-        <CricketField className="w-full h-[70vh]">
-          {/* Countdown or timer */}
+      <div className="flex-1 w-full max-w-md relative">
+        <CricketField className="w-full aspect-square mx-auto">
           {!gameStarted ? (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
               <motion.div 
@@ -182,21 +163,19 @@ const BattingGame = () => {
             />
           )}
           
-          {/* Ball */}
           {showBall && (
             <motion.div 
               ref={ballRef}
-              className="absolute top-[5%] left-[calc(50%-24px)]"
+              className="absolute top-0 left-[calc(50%-20px)]"
               animate={controls}
             >
               <CricketBall />
             </motion.div>
           )}
           
-          {/* Bat */}
           <div 
             ref={batRef}
-            className="absolute bottom-[5%] left-[calc(50%-30px)]"
+            className="absolute bottom-[10%] left-[calc(50%-20px)]"
           >
             <CricketBat 
               onClick={handleBatSwing} 
@@ -206,7 +185,6 @@ const BattingGame = () => {
         </CricketField>
       </div>
       
-      {/* Score display */}
       <div className="w-full p-4 glass-card mt-4 rounded-lg">
         <h3 className="text-white text-center font-bold mb-2">Current Over</h3>
         <div className="flex justify-center gap-2">

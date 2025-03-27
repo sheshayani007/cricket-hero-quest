@@ -11,7 +11,7 @@ interface CricketFieldProps {
 const CricketField: React.FC<CricketFieldProps> = ({ children, className }) => {
   return (
     <motion.div 
-      className={cn("cricket-field w-full h-full", className)}
+      className={cn("cricket-field w-full aspect-square rounded-full", className)}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}

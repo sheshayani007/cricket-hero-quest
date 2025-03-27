@@ -13,43 +13,47 @@ const CricketBat: React.FC<CricketBatProps> = ({ className, onClick }) => {
     <motion.div 
       className={cn("relative cursor-pointer", className)}
       whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileTap={{ scale: 0.95, rotate: 15 }}
       onClick={onClick}
     >
       <svg 
-        width="60" 
-        height="180" 
-        viewBox="0 0 60 180" 
+        width="40" 
+        height="90" 
+        viewBox="0 0 40 90" 
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
       >
+        {/* Handle */}
+        <rect x="15" y="50" width="10" height="40" fill="#8B4513" />
+        
+        {/* Bat body */}
         <path 
-          d="M30 0L45 20L45 140L40 150L35 155L30 160L25 155L20 150L15 140L15 20L30 0Z" 
+          d="M5 10C5 4.5 35 4.5 35 10L35 50H5L5 10Z" 
           fill="#CD9B6A"
         />
+        
+        {/* Bat edge & details */}
         <path 
-          d="M15 140L20 150L25 155L30 160L35 155L40 150L45 140L45 130L15 130L15 140Z" 
-          fill="#B37F4A"
-        />
-        <path 
-          d="M15 20L45 20L30 0L15 20Z" 
+          d="M5 10C5 4.5 35 4.5 35 10L35 20H5L5 10Z" 
           fill="#B37F4A"
         />
         <rect 
-          x="15" 
+          x="10" 
           y="20" 
-          width="30" 
-          height="110" 
-          fill="#CD9B6A"
-        />
-        <rect 
-          x="20" 
-          y="30" 
           width="20" 
-          height="90" 
+          height="25" 
           fill="#B37F4A"
           fillOpacity="0.3"
         />
+        
+        {/* Handle grip */}
+        <rect x="15" y="50" width="10" height="40" stroke="#333" strokeWidth="0.5" />
+        <rect x="15" y="55" width="10" height="2" fill="#333" />
+        <rect x="15" y="60" width="10" height="2" fill="#333" />
+        <rect x="15" y="65" width="10" height="2" fill="#333" />
+        <rect x="15" y="70" width="10" height="2" fill="#333" />
+        <rect x="15" y="75" width="10" height="2" fill="#333" />
+        <rect x="15" y="80" width="10" height="2" fill="#333" />
       </svg>
     </motion.div>
   );
