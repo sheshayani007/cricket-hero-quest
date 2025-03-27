@@ -21,7 +21,7 @@ const BattingGame = () => {
   const [scores, setScores] = useState<number[]>([]);
   const [countdown, setCountdown] = useState(3);
   const [gameStarted, setGameStarted] = useState(false);
-  const [showBall, setShowBall] = useState(false);
+  const [showBall, setShowBall] = useState(true); // Ball is visible by default
   const [batSwung, setBatSwung] = useState(false);
   const [ballReleased, setBallReleased] = useState(false);
   const [ballTimer, setBallTimer] = useState(5);
@@ -31,10 +31,11 @@ const BattingGame = () => {
   const ballRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   
+  // Adjusted speed map for better gameplay
   const speedMap = {
-    'easy': { min: 2, max: 3 },
-    'medium': { min: 1.5, max: 2.5 },
-    'hard': { min: 1, max: 2 }
+    'easy': { min: 3, max: 4 },
+    'medium': { min: 2.5, max: 3.5 },
+    'hard': { min: 2, max: 3 }
   };
 
   // Handle going back to home
@@ -171,7 +172,7 @@ const BattingGame = () => {
       <Button 
         variant="ghost" 
         size="icon" 
-        className="absolute top-4 left-4 text-white"
+        className="absolute top-4 left-4 text-white z-10"
         onClick={handleBackToHome}
       >
         <ArrowLeft className="h-6 w-6" />
@@ -206,25 +207,26 @@ const BattingGame = () => {
           ) : !isPlaying && !ballReleased ? (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
               <motion.div 
-                className="text-4xl font-bold text-white glass-card px-8 py-4 rounded-full"
+                className="text-4xl font-bold text-white"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.5, opacity: 0 }}
               >
-                Next Ball: {ballTimer}s
+                {ballTimer}
               </motion.div>
             </div>
           ) : null}
           
-          {showBall && (
+          {/* Always show the ball at the top before it's bowled */}
+          {showBall ? (
             <motion.div 
               ref={ballRef}
-              className="absolute top-0 left-[calc(50%-24px)]"
-              animate={controls}
+              className="absolute top-[10%] left-1/2 -translate-x-1/2"
+              animate={isPlaying ? controls : undefined}
             >
-              <CricketBall />
+              <CricketBall animated={!isPlaying} />
             </motion.div>
-          )}
+          ) : null}
           
           <div 
             ref={batRef}
@@ -232,7 +234,12 @@ const BattingGame = () => {
           >
             <CricketBat 
               onDrag={handleBatDrag}
-              dragConstraints={fieldRef}
+              dragConstraints={{
+                top: 0,
+                left: -100,
+                right: 100,
+                bottom: 100
+              }}
               className={batSwung ? "opacity-50" : ""}
             />
           </div>
