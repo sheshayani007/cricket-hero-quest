@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -8,6 +7,11 @@ import CricketBall from '@/components/CricketBall';
 import BallCounter from '@/components/BallCounter';
 import CountdownTimer from '@/components/CountdownTimer';
 import { getRandomPlayers, Player } from '@/data/playerData';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+const REAL_PITCH_LENGTH_METERS = 20.12; // Standard cricket pitch length in meters
+const MAX_REAL_BOWLING_SPEED_KMH = 160; // Maximum realistic bowling speed in km/h
 
 const BowlingGame = () => {
   const { difficulty = 'medium' } = useParams<{ difficulty: Difficulty }>();
@@ -21,17 +25,47 @@ const BowlingGame = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [ballReleased, setBallReleased] = useState(false);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  const [showTrajectory, setShowTrajectory] = useState(false);
+  const [trajectoryPoints, setTrajectoryPoints] = useState<{x: number, y: number}[]>([]);
+  const [fieldSize, setFieldSize] = useState(0);
+  const [pitchLength, setPitchLength] = useState(0);
+  const [speedRatio, setSpeedRatio] = useState(1);
+  const [currentDragPos, setCurrentDragPos] = useState({ x: 0, y: 0 });
   
   const controls = useAnimation();
   const ballRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
   
-  // Initialize game
   useEffect(() => {
-    // Get random batsman based on difficulty
+    const updateFieldSize = () => {
+      if (fieldRef.current) {
+        const fieldRect = fieldRef.current.getBoundingClientRect();
+        const fieldDiameter = Math.min(fieldRect.width, fieldRect.height);
+        setFieldSize(fieldDiameter);
+        
+        const pitchLengthPx = fieldDiameter * 0.7;
+        setPitchLength(pitchLengthPx);
+        
+        const pitchLengthCm = pitchLengthPx / 10;
+        const calculatedRatio = REAL_PITCH_LENGTH_METERS * 100 / pitchLengthCm;
+        setSpeedRatio(calculatedRatio);
+        
+        console.log(`Field size: ${fieldDiameter}px, Pitch length: ${pitchLengthPx}px, Speed ratio: ${calculatedRatio}`);
+      }
+    };
+    
+    updateFieldSize();
+    window.addEventListener('resize', updateFieldSize);
+    
+    return () => {
+      window.removeEventListener('resize', updateFieldSize);
+    };
+  }, []);
+  
+  useEffect(() => {
     const [batsman] = getRandomPlayers('batsman', difficulty as Difficulty);
     setOpponent(batsman);
     
-    // Start countdown
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -46,13 +80,12 @@ const BowlingGame = () => {
     return () => clearInterval(timer);
   }, [difficulty]);
   
-  // Handle ball drag start
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (isPlaying || ballReleased) return;
     
     setIsDragging(true);
+    setShowTrajectory(true);
     
-    // Get start position
     const clientX = 'touches' in e 
       ? e.touches[0].clientX 
       : e.clientX;
@@ -61,17 +94,46 @@ const BowlingGame = () => {
       : e.clientY;
     
     setDragStartPos({ x: clientX, y: clientY });
+    setCurrentDragPos({ x: clientX, y: clientY });
   };
   
-  // Handle ball drag end (release)
+  const handleDrag = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging || ballReleased) return;
+    
+    const clientX = 'touches' in e 
+      ? e.touches[0].clientX 
+      : e.clientX;
+    const clientY = 'touches' in e 
+      ? e.touches[0].clientY 
+      : e.clientY;
+    
+    setCurrentDragPos({ x: clientX, y: clientY });
+    
+    const deltaX = dragStartPos.x - clientX;
+    const deltaY = dragStartPos.y - clientY;
+    
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    const points = [];
+    const steps = 5;
+    for (let i = 0; i < steps; i++) {
+      points.push({
+        x: clientX + (deltaX * (i+1) / steps),
+        y: clientY + (deltaY * (i+1) / steps)
+      });
+    }
+    
+    setTrajectoryPoints(points);
+  };
+  
   const handleDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging || ballReleased) return;
     
     setIsDragging(false);
+    setShowTrajectory(false);
     setBallReleased(true);
     setIsPlaying(true);
     
-    // Get end position
     const clientX = 'changedTouches' in e 
       ? e.changedTouches[0].clientX 
       : e.clientX;
@@ -79,18 +141,32 @@ const BowlingGame = () => {
       ? e.changedTouches[0].clientY 
       : e.clientY;
     
-    // Calculate velocity and direction
-    const deltaX = clientX - dragStartPos.x;
-    const deltaY = clientY - dragStartPos.y;
+    const deltaX = dragStartPos.x - clientX;
+    const deltaY = dragStartPos.y - clientY;
+    
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
-    // Normalize to 0-100 scale
-    // In a real game this would be more sophisticated
-    const speed = Math.min(100, distance / 5);
+    const powerPercentage = Math.min(100, distance / 3);
     
-    // Calculate accuracy (based on how centered the throw is)
-    // For this demo, we'll consider horizontal deviation from center
-    const fieldRect = document.querySelector('.cricket-field')?.getBoundingClientRect();
+    let speedKmh = (powerPercentage / 100) * MAX_REAL_BOWLING_SPEED_KMH;
+    
+    if (difficulty === 'easy') {
+      speedKmh *= 0.7;
+    } else if (difficulty === 'hard') {
+      speedKmh *= 1.2;
+    }
+    
+    const speedMs = speedKmh / 3.6;
+    
+    const realWorldTravelTime = REAL_PITCH_LENGTH_METERS / speedMs;
+    const scaledTravelTime = Math.max(1.2, realWorldTravelTime / 5);
+    
+    console.log(`Bowling speed: ${speedKmh.toFixed(1)} km/h, Travel time: ${scaledTravelTime.toFixed(2)}s`);
+    
+    const dirX = deltaX / distance;
+    const dirY = deltaY / distance;
+    
+    const fieldRect = fieldRef.current?.getBoundingClientRect();
     let accuracy = 100;
     
     if (fieldRect) {
@@ -99,25 +175,25 @@ const BowlingGame = () => {
       accuracy = Math.max(0, 100 - (horizontalDeviation / (fieldRect.width / 2) * 100));
     }
     
-    // Animate ball based on throw
     controls.start({
-      y: [0, -100, -300],
-      x: [0, deltaX/10, deltaX/5],
+      y: [0, dirY * -200],
+      x: [0, dirX * -200],
       rotate: 720,
-      transition: { duration: 1.5, ease: "easeOut" }
+      transition: { duration: scaledTravelTime, ease: "easeOut" }
     }).then(() => {
-      // Ball reached the other end
-      setPerformances(prev => [...prev, { speed, accuracy }]);
+      setPerformances(prev => [...prev, { speed: speedKmh, accuracy }]);
       setIsPlaying(false);
       setBallReleased(false);
       setCurrentBall(prev => prev + 1);
     });
   };
   
-  // Between-ball timer
+  const handleBackToHome = () => {
+    navigate('/');
+  };
+  
   useEffect(() => {
     if (gameStarted && !isPlaying && currentBall < 6 && !ballReleased) {
-      // Wait a moment before allowing next ball
       const timer = setTimeout(() => {
         // Ready for next ball
       }, 2000);
@@ -125,9 +201,7 @@ const BowlingGame = () => {
       return () => clearTimeout(timer);
     }
     
-    // Check if all balls have been bowled
     if (currentBall >= 6) {
-      // Game over, navigate to results
       navigate('/results/bowling', { 
         state: { 
           performances, 
@@ -139,8 +213,16 @@ const BowlingGame = () => {
   }, [gameStarted, isPlaying, currentBall, ballReleased, performances, difficulty, opponent, navigate]);
   
   return (
-    <div className="min-h-screen w-full flex flex-col items-center relative">
-      {/* Game stats header */}
+    <div className="min-h-screen w-full flex flex-col items-center relative bg-gradient-to-b from-ipl-blue via-ipl-purple to-black">
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="absolute top-4 left-4 text-white z-10 bg-black/30 hover:bg-black/50"
+        onClick={handleBackToHome}
+      >
+        <ArrowLeft className="h-6 w-6" />
+      </Button>
+      
       <div className="w-full p-4 flex justify-between items-center">
         <div className="glass-card px-4 py-2 rounded-lg">
           <h2 className="text-white font-bold">Bowling to: {opponent?.name || 'Batsman'}</h2>
@@ -153,10 +235,8 @@ const BowlingGame = () => {
         />
       </div>
       
-      {/* Cricket field */}
-      <div className="flex-1 w-full max-w-3xl relative">
-        <CricketField className="w-full h-[70vh]">
-          {/* Countdown or timer */}
+      <div className="flex-1 w-full max-w-md relative" ref={fieldRef}>
+        <CricketField className="w-full aspect-square mx-auto">
           {!gameStarted ? (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
               <motion.div 
@@ -169,54 +249,91 @@ const BowlingGame = () => {
                 {countdown > 0 ? countdown : "Bowl!"}
               </motion.div>
             </div>
-          ) : (
-            <CountdownTimer 
-              duration={3} 
-              className="absolute top-4 right-4"
-              autoStart={false}
-            />
+          ) : null}
+          
+          {showTrajectory && trajectoryPoints.length > 0 && (
+            <>
+              {trajectoryPoints.map((point, i) => {
+                if (!fieldRef.current) return null;
+                const fieldRect = fieldRef.current.getBoundingClientRect();
+                const relX = ((point.x - fieldRect.left) / fieldRect.width) * 100;
+                const relY = ((point.y - fieldRect.top) / fieldRect.height) * 100;
+                
+                return (
+                  <div 
+                    key={i}
+                    className="absolute w-2 h-2 bg-white/50 rounded-full"
+                    style={{ 
+                      left: `${relX}%`, 
+                      top: `${relY}%`,
+                      opacity: 1 - (i / trajectoryPoints.length)
+                    }}
+                  />
+                );
+              })}
+            </>
           )}
           
-          {/* Ball */}
           {gameStarted && !isPlaying && !ballReleased && (
-            <motion.div
+            <div
               ref={ballRef}
               className="absolute bottom-[10%] left-[calc(50%-24px)]"
-              drag={!ballReleased}
-              dragConstraints={{ left: -50, right: 50, top: -50, bottom: 0 }}
               onMouseDown={handleDragStart}
               onTouchStart={handleDragStart}
+              onMouseMove={(e) => handleDrag(e)}
+              onTouchMove={(e) => handleDrag(e)}
               onMouseUp={handleDragEnd}
               onTouchEnd={handleDragEnd}
-              animate={ballReleased ? controls : {}}
-              whileDrag={{ scale: 1.2 }}
-              style={{ cursor: ballReleased ? 'default' : 'grab' }}
+              style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
             >
-              <CricketBall animated={isDragging} />
-            </motion.div>
+              <CricketBall 
+                animated={isDragging} 
+                className={`${isDragging ? 'scale-110' : ''} transition-transform shadow-[0_0_30px_rgba(255,0,0,0.7)]`}
+              />
+              
+              {isDragging && (
+                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-48 h-2 bg-white/30 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-ipl-orange" 
+                    initial={{ width: 0 }}
+                    animate={{ 
+                      width: dragStartPos && currentDragPos ? 
+                        `${Math.min(100, Math.sqrt(
+                          Math.pow(dragStartPos.x - currentDragPos.x, 2) + 
+                          Math.pow(dragStartPos.y - currentDragPos.y, 2)
+                        ) / 3)}%` : '0%'
+                    }}
+                  />
+                </div>
+              )}
+              
+              {!isDragging && (
+                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-white text-center text-sm bg-black/40 px-2 py-1 rounded">
+                  Pull back to bowl
+                </div>
+              )}
+            </div>
           )}
           
-          {/* Ball in motion */}
           {ballReleased && (
             <motion.div 
               className="absolute bottom-[10%] left-[calc(50%-24px)]"
               animate={controls}
             >
-              <CricketBall animated={true} />
+              <CricketBall animated={true} className="shadow-[0_0_30px_rgba(255,0,0,0.7)]" />
             </motion.div>
           )}
         </CricketField>
       </div>
       
-      {/* Instructions */}
       <div className="w-full p-4 glass-card mt-4 rounded-lg text-center">
         <h3 className="text-white font-bold mb-2">
           {!ballReleased && currentBall < 6 
-            ? "Drag and release to bowl!" 
+            ? "Pull back and release to bowl!" 
             : "Ball " + (currentBall) + " of 6"
           }
         </h3>
-        <div className="flex justify-center gap-2">
+        <div className="flex justify-center gap-2 flex-wrap">
           {performances.map((perf, i) => (
             <div 
               key={i} 

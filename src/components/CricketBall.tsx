@@ -20,7 +20,7 @@ const CricketBall: React.FC<CricketBallProps> = ({
     <motion.div 
       className={cn(
         "relative cursor-pointer w-12 h-12 rounded-full bg-red-600 shadow-lg flex items-center justify-center",
-        "border-2 border-white/40 shadow-[0_0_15px_rgba(255,255,255,0.3)]",
+        "border-4 border-white/70 shadow-[0_0_25px_rgba(255,0,0,0.5)]",
         animated && "animate-spin-slow",
         className
       )}
@@ -30,9 +30,10 @@ const CricketBall: React.FC<CricketBallProps> = ({
     >
       {/* Enhanced seam lines for better visibility */}
       <div className="absolute w-full h-full rounded-full">
-        <div className="absolute w-[40%] h-[2px] bg-white top-[50%] left-[30%] rotate-[30deg]"></div>
-        <div className="absolute w-[40%] h-[2px] bg-white top-[50%] left-[30%] rotate-[150deg]"></div>
-        <div className="absolute w-[40%] h-[2px] bg-white top-[50%] left-[30%] rotate-[90deg]"></div>
+        <div className="absolute w-[60%] h-[3px] bg-white top-[50%] left-[20%] rotate-[30deg]"></div>
+        <div className="absolute w-[60%] h-[3px] bg-white top-[50%] left-[20%] rotate-[150deg]"></div>
+        <div className="absolute w-[60%] h-[3px] bg-white top-[50%] left-[20%] rotate-[90deg]"></div>
+        <div className="absolute w-[60%] h-[3px] bg-white top-[50%] left-[20%] rotate-[0deg]"></div>
       </div>
     </motion.div>
   );

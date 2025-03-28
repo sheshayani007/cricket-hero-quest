@@ -11,6 +11,8 @@ import { getRandomPlayers, Player } from '@/data/playerData';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+const REAL_PITCH_LENGTH_METERS = 20.12; // Standard cricket pitch length in meters
+
 const BattingGame = () => {
   const { difficulty = 'medium' } = useParams<{ difficulty: Difficulty }>();
   const navigate = useNavigate();
@@ -25,22 +27,34 @@ const BattingGame = () => {
   const [ballReleased, setBallReleased] = useState(false);
   const [ballTimer, setBallTimer] = useState(5);
   const [fieldSize, setFieldSize] = useState(0);
+  const [pitchLength, setPitchLength] = useState(0);
+  const [speedRatio, setSpeedRatio] = useState(1);
   const controls = useAnimation();
   const batRef = useRef<HTMLDivElement>(null);
   const ballRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
 
-  const speedMap = {
-    'easy': { min: 3.5, max: 4.0 },
-    'medium': { min: 2.8, max: 3.3 },
-    'hard': { min: 2.2, max: 2.7 }
+  const speedRanges = {
+    'easy': { min: 100, max: 120 },
+    'medium': { min: 125, max: 145 },
+    'hard': { min: 150, max: 170 }
   };
 
   useEffect(() => {
     const updateFieldSize = () => {
       if (fieldRef.current) {
         const fieldRect = fieldRef.current.getBoundingClientRect();
-        setFieldSize(Math.min(fieldRect.width, fieldRect.height));
+        const fieldDiameter = Math.min(fieldRect.width, fieldRect.height);
+        setFieldSize(fieldDiameter);
+        
+        const pitchLengthPx = fieldDiameter * 0.7;
+        setPitchLength(pitchLengthPx);
+        
+        const pitchLengthCm = pitchLengthPx / 10;
+        const calculatedRatio = REAL_PITCH_LENGTH_METERS * 100 / pitchLengthCm;
+        setSpeedRatio(calculatedRatio);
+        
+        console.log(`Field size: ${fieldDiameter}px, Pitch length: ${pitchLengthPx}px, Speed ratio: ${calculatedRatio}`);
       }
     };
     
@@ -91,22 +105,24 @@ const BattingGame = () => {
     setBatSwung(false);
     setBallReleased(true);
     
-    const difficultySettings = speedMap[difficulty as keyof typeof speedMap];
-    const baseSpeed = difficultySettings.min + Math.random() * (difficultySettings.max - difficultySettings.min);
+    const diffSettings = speedRanges[difficulty as keyof typeof speedRanges];
+    const speedKmh = diffSettings.min + Math.random() * (diffSettings.max - diffSettings.min);
     
-    const sizeAdjustment = fieldSize > 0 ? Math.max(1.0, Math.min(1.5, 400 / fieldSize)) : 1;
-    const ballSpeed = baseSpeed * sizeAdjustment;
+    const speedMs = speedKmh / 3.6;
     
-    console.log(`Field size: ${fieldSize}, Ball speed: ${ballSpeed}s`);
+    const realWorldTravelTime = REAL_PITCH_LENGTH_METERS / speedMs;
+    const scaledTravelTime = Math.max(1.2, realWorldTravelTime / 5);
     
-    const randomHorizontal = Math.random() * 60 - 30;
+    console.log(`Ball speed: ${speedKmh} km/h, Real travel time: ${realWorldTravelTime}s, Game travel time: ${scaledTravelTime}s`);
+    
+    const randomHorizontal = Math.random() * 30 - 15;
     
     controls.start({
-      y: ['-60vh', '75vh'],
+      y: ['-50vh', '70vh'],
       x: [randomHorizontal, randomHorizontal],
       rotate: [0, 720],
       transition: { 
-        duration: ballSpeed,
+        duration: scaledTravelTime,
         ease: "linear"
       }
     }).then(() => {
@@ -138,7 +154,7 @@ const BattingGame = () => {
         Math.pow(batCenterY - ballCenterY, 2)
       );
       
-      if (distance < 50 && !batSwung) {
+      if (distance < 70 && !batSwung) {
         setBatSwung(true);
         
         const verticalDistance = Math.abs(ballCenterY - batCenterY);
@@ -235,7 +251,7 @@ const BattingGame = () => {
               className="absolute top-[10%] left-1/2 -translate-x-1/2 z-10"
               animate={isPlaying ? controls : undefined}
             >
-              <CricketBall animated={!isPlaying} className="shadow-[0_0_20px_rgba(255,0,0,0.4)]" />
+              <CricketBall animated={!isPlaying} className="shadow-[0_0_30px_rgba(255,0,0,0.7)]" />
             </motion.div>
           )}
           
