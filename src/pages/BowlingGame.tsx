@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -5,13 +6,14 @@ import { Difficulty } from '@/components/DifficultySelector';
 import CricketField from '@/components/CricketField';
 import CricketBall from '@/components/CricketBall';
 import BallCounter from '@/components/BallCounter';
-import CountdownTimer from '@/components/CountdownTimer';
 import { getRandomPlayers, Player } from '@/data/playerData';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const REAL_PITCH_LENGTH_METERS = 20.12; // Standard cricket pitch length in meters
-const MAX_REAL_BOWLING_SPEED_KMH = 160; // Maximum realistic bowling speed in km/h
+// Standard cricket pitch length in meters
+const REAL_PITCH_LENGTH_METERS = 20.12; 
+// Maximum realistic bowling speed in km/h
+const MAX_REAL_BOWLING_SPEED_KMH = 160; 
 
 const BowlingGame = () => {
   const { difficulty = 'medium' } = useParams<{ difficulty: Difficulty }>();
@@ -19,7 +21,7 @@ const BowlingGame = () => {
   const [currentBall, setCurrentBall] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [opponent, setOpponent] = useState<Player | null>(null);
-  const [performances, setPerformances] = useState<{speed: number, accuracy: number}[]>([]);
+  const [performances, setPerformances] = useState<{speed: number, accuracy: number, scaledSpeed: number}[]>([]);
   const [countdown, setCountdown] = useState(3);
   const [gameStarted, setGameStarted] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -31,11 +33,13 @@ const BowlingGame = () => {
   const [pitchLength, setPitchLength] = useState(0);
   const [speedRatio, setSpeedRatio] = useState(1);
   const [currentDragPos, setCurrentDragPos] = useState({ x: 0, y: 0 });
+  const [powerPercentage, setPowerPercentage] = useState(0);
   
   const controls = useAnimation();
   const ballRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   
+  // Measure field dimensions and calculate ratio
   useEffect(() => {
     const updateFieldSize = () => {
       if (fieldRef.current) {
@@ -43,14 +47,17 @@ const BowlingGame = () => {
         const fieldDiameter = Math.min(fieldRect.width, fieldRect.height);
         setFieldSize(fieldDiameter);
         
+        // Get the pitch length in pixels (approx 70% of field)
         const pitchLengthPx = fieldDiameter * 0.7;
         setPitchLength(pitchLengthPx);
         
-        const pitchLengthCm = pitchLengthPx / 10;
-        const calculatedRatio = REAL_PITCH_LENGTH_METERS * 100 / pitchLengthCm;
+        // Calculate the ratio between real-world pitch and on-screen pitch
+        // Convert pixels to cm (assuming 1px is roughly 0.026458333 cm)
+        const pitchLengthCm = pitchLengthPx * 0.026458333;
+        const calculatedRatio = (REAL_PITCH_LENGTH_METERS * 100) / pitchLengthCm;
         setSpeedRatio(calculatedRatio);
         
-        console.log(`Field size: ${fieldDiameter}px, Pitch length: ${pitchLengthPx}px, Speed ratio: ${calculatedRatio}`);
+        console.log(`Field size: ${fieldDiameter}px, Pitch length: ${pitchLengthPx}px, Real world pitch: ${REAL_PITCH_LENGTH_METERS}m, Speed ratio: ${calculatedRatio}`);
       }
     };
     
@@ -62,6 +69,7 @@ const BowlingGame = () => {
     };
   }, []);
   
+  // Setup opponent and countdown
   useEffect(() => {
     const [batsman] = getRandomPlayers('batsman', difficulty as Difficulty);
     setOpponent(batsman);
@@ -80,6 +88,7 @@ const BowlingGame = () => {
     return () => clearInterval(timer);
   }, [difficulty]);
   
+  // Start dragging the ball
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (isPlaying || ballReleased) return;
     
@@ -95,8 +104,10 @@ const BowlingGame = () => {
     
     setDragStartPos({ x: clientX, y: clientY });
     setCurrentDragPos({ x: clientX, y: clientY });
+    setPowerPercentage(0);
   };
   
+  // Update trajectory while dragging
   const handleDrag = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging || ballReleased) return;
     
@@ -109,28 +120,43 @@ const BowlingGame = () => {
     
     setCurrentDragPos({ x: clientX, y: clientY });
     
+    // Calculate drag distance and direction
     const deltaX = dragStartPos.x - clientX;
     const deltaY = dragStartPos.y - clientY;
     
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
+    // Update power percentage (capped at 100%)
+    const newPowerPercentage = Math.min(100, (distance / 200) * 100);
+    setPowerPercentage(newPowerPercentage);
+    
+    // Generate trajectory points
     const points = [];
-    const steps = 5;
+    const steps = 10;
+    
     for (let i = 0; i < steps; i++) {
       points.push({
-        x: clientX + (deltaX * (i+1) / steps),
-        y: clientY + (deltaY * (i+1) / steps)
+        x: dragStartPos.x - (deltaX * (i+1) / steps),
+        y: dragStartPos.y - (deltaY * (i+1) / steps)
       });
     }
     
     setTrajectoryPoints(points);
   };
   
+  // Release the ball
   const handleDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging || ballReleased) return;
     
     setIsDragging(false);
     setShowTrajectory(false);
+    
+    // Only bowl if we've dragged back a minimum distance
+    if (powerPercentage < 5) {
+      setPowerPercentage(0);
+      return;
+    }
+    
     setBallReleased(true);
     setIsPlaying(true);
     
@@ -141,50 +167,77 @@ const BowlingGame = () => {
       ? e.changedTouches[0].clientY 
       : e.clientY;
     
+    // Calculate drag vector
     const deltaX = dragStartPos.x - clientX;
     const deltaY = dragStartPos.y - clientY;
     
+    // Calculate distance and normalize direction
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    const dirX = deltaX / distance;
+    const dirY = deltaY / distance;
     
-    const powerPercentage = Math.min(100, distance / 3);
+    // Calculate speed based on drag distance and difficulty
+    const power = Math.min(100, (distance / 200) * 100);
     
-    let speedKmh = (powerPercentage / 100) * MAX_REAL_BOWLING_SPEED_KMH;
+    // Map power to realistic bowling speed (km/h)
+    let speedKmh = (power / 100) * MAX_REAL_BOWLING_SPEED_KMH;
     
+    // Adjust for difficulty
     if (difficulty === 'easy') {
       speedKmh *= 0.7;
     } else if (difficulty === 'hard') {
       speedKmh *= 1.2;
     }
     
-    const speedMs = speedKmh / 3.6;
+    // Scale speed for screen size
+    const scaledSpeedKmh = speedKmh / speedRatio;
     
-    const realWorldTravelTime = REAL_PITCH_LENGTH_METERS / speedMs;
-    const scaledTravelTime = Math.max(1.2, realWorldTravelTime / 5);
+    // Convert to m/s for timing calculation
+    const speedMs = scaledSpeedKmh / 3.6;
     
-    console.log(`Bowling speed: ${speedKmh.toFixed(1)} km/h, Travel time: ${scaledTravelTime.toFixed(2)}s`);
+    // Calculate animation duration based on scaled speed
+    let scaledTravelTime = 1.5;
     
-    const dirX = deltaX / distance;
-    const dirY = deltaY / distance;
+    if (speedMs > 0) {
+      // Time = distance / speed
+      const realWorldTravelTime = REAL_PITCH_LENGTH_METERS / (speedKmh / 3.6);
+      // Scale time for better gameplay (min 1.5s for visibility)
+      scaledTravelTime = Math.max(1.5, realWorldTravelTime / 2);
+    }
     
-    const fieldRect = fieldRef.current?.getBoundingClientRect();
+    console.log(`Bowling speed: ${speedKmh.toFixed(1)} km/h, Scaled speed: ${scaledSpeedKmh.toFixed(1)} km/h, Travel time: ${scaledTravelTime.toFixed(2)}s`);
+    
+    // Calculate accuracy based on horizontal deviation from center
     let accuracy = 100;
+    const fieldRect = fieldRef.current?.getBoundingClientRect();
     
     if (fieldRect) {
       const fieldCenterX = fieldRect.left + fieldRect.width / 2;
-      const horizontalDeviation = Math.abs(clientX - fieldCenterX);
+      const horizontalDeviation = Math.abs(dragStartPos.x - fieldCenterX);
       accuracy = Math.max(0, 100 - (horizontalDeviation / (fieldRect.width / 2) * 100));
     }
     
+    // Animate the ball along the calculated trajectory
     controls.start({
-      y: [0, dirY * -200],
-      x: [0, dirX * -200],
-      rotate: 720,
-      transition: { duration: scaledTravelTime, ease: "easeOut" }
+      x: [0, -dirX * 200],
+      y: [0, -dirY * 200],
+      rotate: [0, 720],
+      transition: { 
+        duration: scaledTravelTime, 
+        ease: "linear",
+        times: [0, 1]
+      }
     }).then(() => {
-      setPerformances(prev => [...prev, { speed: speedKmh, accuracy }]);
+      // Save performance metrics after ball is bowled
+      setPerformances(prev => [...prev, { 
+        speed: speedKmh, 
+        scaledSpeed: scaledSpeedKmh,
+        accuracy 
+      }]);
       setIsPlaying(false);
       setBallReleased(false);
       setCurrentBall(prev => prev + 1);
+      setPowerPercentage(0);
     });
   };
   
@@ -192,15 +245,8 @@ const BowlingGame = () => {
     navigate('/');
   };
   
+  // Navigate to results after 6 balls
   useEffect(() => {
-    if (gameStarted && !isPlaying && currentBall < 6 && !ballReleased) {
-      const timer = setTimeout(() => {
-        // Ready for next ball
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-    
     if (currentBall >= 6) {
       navigate('/results/bowling', { 
         state: { 
@@ -210,7 +256,7 @@ const BowlingGame = () => {
         } 
       });
     }
-  }, [gameStarted, isPlaying, currentBall, ballReleased, performances, difficulty, opponent, navigate]);
+  }, [currentBall, performances, difficulty, opponent, navigate]);
   
   return (
     <div className="min-h-screen w-full flex flex-col items-center relative bg-gradient-to-b from-ipl-blue via-ipl-purple to-black">
@@ -251,6 +297,7 @@ const BowlingGame = () => {
             </div>
           ) : null}
           
+          {/* Trajectory prediction line */}
           {showTrajectory && trajectoryPoints.length > 0 && (
             <>
               {trajectoryPoints.map((point, i) => {
@@ -262,11 +309,12 @@ const BowlingGame = () => {
                 return (
                   <div 
                     key={i}
-                    className="absolute w-2 h-2 bg-white/50 rounded-full"
+                    className="absolute w-3 h-3 bg-white/50 rounded-full"
                     style={{ 
                       left: `${relX}%`, 
                       top: `${relY}%`,
-                      opacity: 1 - (i / trajectoryPoints.length)
+                      opacity: 1 - (i / trajectoryPoints.length),
+                      transform: 'translate(-50%, -50%)'
                     }}
                   />
                 );
@@ -274,10 +322,11 @@ const BowlingGame = () => {
             </>
           )}
           
+          {/* Ball in starting position */}
           {gameStarted && !isPlaying && !ballReleased && (
             <div
               ref={ballRef}
-              className="absolute bottom-[10%] left-[calc(50%-24px)]"
+              className="absolute bottom-[10%] left-1/2 transform -translate-x-1/2 z-10"
               onMouseDown={handleDragStart}
               onTouchStart={handleDragStart}
               onMouseMove={(e) => handleDrag(e)}
@@ -287,59 +336,73 @@ const BowlingGame = () => {
               style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
             >
               <CricketBall 
-                animated={isDragging} 
-                className={`${isDragging ? 'scale-110' : ''} transition-transform shadow-[0_0_30px_rgba(255,0,0,0.7)]`}
+                animated={isDragging}
+                size={isDragging ? "large" : "medium"}
+                className={`
+                  ${isDragging ? 'scale-110' : ''} 
+                  transition-transform 
+                  shadow-[0_0_30px_rgba(255,0,0,0.7)]
+                `}
               />
               
+              {/* Power meter */}
               {isDragging && (
-                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-48 h-2 bg-white/30 rounded-full overflow-hidden">
+                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-48 h-3 bg-white/30 rounded-full overflow-hidden">
                   <motion.div 
-                    className="h-full bg-ipl-orange" 
-                    initial={{ width: 0 }}
-                    animate={{ 
-                      width: dragStartPos && currentDragPos ? 
-                        `${Math.min(100, Math.sqrt(
-                          Math.pow(dragStartPos.x - currentDragPos.x, 2) + 
-                          Math.pow(dragStartPos.y - currentDragPos.y, 2)
-                        ) / 3)}%` : '0%'
+                    className="h-full" 
+                    style={{
+                      width: `${powerPercentage}%`,
+                      background: powerPercentage < 33 
+                        ? 'rgb(74, 222, 128)' 
+                        : powerPercentage < 66 
+                          ? 'rgb(250, 204, 21)' 
+                          : 'rgb(239, 68, 68)'
                     }}
                   />
                 </div>
               )}
               
+              {/* Instruction text */}
               {!isDragging && (
-                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-white text-center text-sm bg-black/40 px-2 py-1 rounded">
+                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-white text-center text-sm bg-black/40 px-2.5 py-1.5 rounded-lg">
                   Pull back to bowl
                 </div>
               )}
             </div>
           )}
           
+          {/* Animated ball after release */}
           {ballReleased && (
             <motion.div 
-              className="absolute bottom-[10%] left-[calc(50%-24px)]"
+              className="absolute bottom-[10%] left-1/2 transform -translate-x-1/2 z-10"
               animate={controls}
             >
-              <CricketBall animated={true} className="shadow-[0_0_30px_rgba(255,0,0,0.7)]" />
+              <CricketBall 
+                animated={true} 
+                size="medium"
+                className="shadow-[0_0_30px_rgba(255,0,0,0.7)]" 
+              />
             </motion.div>
           )}
         </CricketField>
       </div>
       
-      <div className="w-full p-4 glass-card mt-4 rounded-lg text-center">
-        <h3 className="text-white font-bold mb-2">
+      <div className="w-full p-4 glass-card mt-4 rounded-lg">
+        <h3 className="text-white text-center font-bold mb-2">
           {!ballReleased && currentBall < 6 
             ? "Pull back and release to bowl!" 
-            : "Ball " + (currentBall) + " of 6"
+            : `Ball ${currentBall} of 6`
           }
         </h3>
+        
         <div className="flex justify-center gap-2 flex-wrap">
           {performances.map((perf, i) => (
             <div 
               key={i} 
-              className="glass-card px-2 py-1 rounded-md text-white text-xs"
+              className="glass-card px-3 py-1 rounded-md text-white"
             >
-              {Math.round(perf.speed)}km/h
+              <div className="text-sm font-medium">Ball {i+1}: {Math.round(perf.speed)} km/h</div>
+              <div className="text-xs opacity-70">(Accuracy: {Math.round(perf.accuracy)}%)</div>
             </div>
           ))}
         </div>
