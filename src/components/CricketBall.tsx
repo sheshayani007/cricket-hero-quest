@@ -9,6 +9,8 @@ interface CricketBallProps {
   onClick?: () => void;
   animated?: boolean;
   size?: 'small' | 'medium' | 'large';
+  trailEffect?: boolean;
+  glowColor?: string;
 }
 
 const CricketBall: React.FC<CricketBallProps> = ({ 
@@ -16,7 +18,9 @@ const CricketBall: React.FC<CricketBallProps> = ({
   speed = 'medium', 
   onClick,
   animated = false,
-  size = 'medium'
+  size = 'medium',
+  trailEffect = false,
+  glowColor = "rgba(255,0,0,0.7)"
 }) => {
   // Size mapping for different ball sizes
   const sizeMap = {
@@ -29,11 +33,15 @@ const CricketBall: React.FC<CricketBallProps> = ({
     <motion.div 
       className={cn(
         "relative cursor-pointer rounded-full bg-red-600 shadow-lg flex items-center justify-center",
-        "border-4 border-white/70 shadow-[0_0_25px_rgba(255,0,0,0.7)]",
+        "border-4 border-white/70",
         animated && "animate-spin-slow",
         sizeMap[size],
+        trailEffect && "after:content-[''] after:absolute after:w-full after:h-full after:rounded-full after:bg-red-500/30 after:-z-10 after:blur-md after:animate-pulse",
         className
       )}
+      style={{
+        boxShadow: `0 0 25px ${glowColor}`
+      }}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.9 }}
       onClick={onClick}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -29,6 +30,8 @@ const BattingGame = () => {
   const [fieldSize, setFieldSize] = useState(0);
   const [pitchLength, setPitchLength] = useState(0);
   const [speedRatio, setSpeedRatio] = useState(1);
+  const [ballPosition, setBallPosition] = useState({ x: 0, y: 0 });
+  const [showBallTrail, setShowBallTrail] = useState(false);
   const controls = useAnimation();
   const batRef = useRef<HTMLDivElement>(null);
   const ballRef = useRef<HTMLDivElement>(null);
@@ -88,6 +91,27 @@ const BattingGame = () => {
     return () => clearInterval(timer);
   }, [difficulty]);
 
+  // Update ball position during animation for trail effect
+  useEffect(() => {
+    if (isPlaying && ballRef.current) {
+      const updateBallPosition = () => {
+        const ballRect = ballRef.current?.getBoundingClientRect();
+        if (ballRect) {
+          setBallPosition({
+            x: ballRect.left + ballRect.width/2,
+            y: ballRect.top + ballRect.height/2
+          });
+        }
+        
+        if (isPlaying) {
+          requestAnimationFrame(updateBallPosition);
+        }
+      };
+      
+      requestAnimationFrame(updateBallPosition);
+    }
+  }, [isPlaying]);
+
   const startNewBall = () => {
     if (currentBall >= 6) {
       navigate('/results/batting', { 
@@ -104,6 +128,7 @@ const BattingGame = () => {
     setShowBall(true);
     setBatSwung(false);
     setBallReleased(true);
+    setShowBallTrail(true);
     
     const diffSettings = speedRanges[difficulty as keyof typeof speedRanges];
     const speedKmh = diffSettings.min + Math.random() * (diffSettings.max - diffSettings.min);
@@ -111,11 +136,13 @@ const BattingGame = () => {
     const speedMs = speedKmh / 3.6;
     
     const realWorldTravelTime = REAL_PITCH_LENGTH_METERS / speedMs;
-    const scaledTravelTime = Math.max(1.2, realWorldTravelTime / 5);
+    // Significantly increase the base time for slower ball movement and better visibility
+    const scaledTravelTime = Math.max(3.0, realWorldTravelTime / 3);
     
     console.log(`Ball speed: ${speedKmh} km/h, Real travel time: ${realWorldTravelTime}s, Game travel time: ${scaledTravelTime}s`);
     
-    const randomHorizontal = Math.random() * 30 - 15;
+    // Randomize horizontal position a bit less for better playability
+    const randomHorizontal = Math.random() * 20 - 10;
     
     controls.start({
       y: ['-50vh', '70vh'],
@@ -132,6 +159,7 @@ const BattingGame = () => {
       setShowBall(false);
       setIsPlaying(false);
       setBallReleased(false);
+      setShowBallTrail(false);
       setCurrentBall(prev => prev + 1);
       setBallTimer(5);
     });
@@ -154,12 +182,14 @@ const BattingGame = () => {
         Math.pow(batCenterY - ballCenterY, 2)
       );
       
-      if (distance < 70 && !batSwung) {
+      // Increase the hit detection radius for better playability
+      if (distance < 80 && !batSwung) {
         setBatSwung(true);
+        setShowBallTrail(false);
         
         const verticalDistance = Math.abs(ballCenterY - batCenterY);
         const perfectDistance = 20;
-        const tolerance = 30;
+        const tolerance = 35; // Increased tolerance
         
         const timingScore = Math.max(0, 6 - Math.floor(Math.abs(verticalDistance - perfectDistance) / tolerance));
         
@@ -245,13 +275,45 @@ const BattingGame = () => {
             </div>
           ) : null}
           
+          {/* Add ball trail effect for better visibility */}
+          {showBallTrail && isPlaying && (
+            <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+              <div className="absolute w-10 h-10 rounded-full bg-red-500/20 blur-md"
+                   style={{ 
+                     left: `${ballPosition.x}px`, 
+                     top: `${ballPosition.y}px`,
+                     transform: "translate(-50%, -50%)"
+                   }}
+              />
+              <div className="absolute w-8 h-8 rounded-full bg-red-500/30 blur-md"
+                   style={{ 
+                     left: `${ballPosition.x}px`, 
+                     top: `${ballPosition.y - 15}px`,
+                     transform: "translate(-50%, -50%)"
+                   }}
+              />
+              <div className="absolute w-6 h-6 rounded-full bg-red-500/40 blur-md"
+                   style={{ 
+                     left: `${ballPosition.x}px`, 
+                     top: `${ballPosition.y - 30}px`,
+                     transform: "translate(-50%, -50%)"
+                   }}
+              />
+            </div>
+          )}
+          
           {showBall && (
             <motion.div 
               ref={ballRef}
               className="absolute top-[10%] left-1/2 -translate-x-1/2 z-10"
               animate={isPlaying ? controls : undefined}
             >
-              <CricketBall animated={!isPlaying} className="shadow-[0_0_30px_rgba(255,0,0,0.7)]" />
+              <CricketBall 
+                animated={!isPlaying} 
+                size="large"
+                trailEffect={isPlaying}
+                glowColor="rgba(255,0,0,0.9)"
+              />
             </motion.div>
           )}
           
