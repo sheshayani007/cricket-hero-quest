@@ -113,6 +113,11 @@ const BowlingGame = () => {
     setLastMoveTime(Date.now());
     setPowerPercentage(0);
     setSwingSpeed(0);
+    
+    // Add haptic feedback for mobile
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
   };
   
   // Update trajectory while dragging
@@ -148,46 +153,59 @@ const BowlingGame = () => {
       setLastMovePos({ x: clientX, y: clientY });
       setLastMoveTime(now);
       
-      // In pull back phase, we track the max distance
+      // Detect phase change more intuitively
       if (dragPhase === 'pullBack') {
         // The further back we pull, the more power
-        const newPowerPercentage = Math.min(100, (distanceFromStart / 150) * 100);
+        const newPowerPercentage = Math.min(100, (distanceFromStart / 100) * 100);
         setPowerPercentage(newPowerPercentage);
         
-        // If we're moving back toward the start position, switch to forward swing
-        if (deltaY < 0 && velocity > 0.1) {
+        // Switch to forward swing when movement direction changes from backward to forward
+        // Only switch when we have some minimal power and velocity
+        if (distanceFromStart > 20 && deltaY < 0 && velocity > 0.05) {
           setDragPhase('forwardSwing');
+          // Add haptic feedback for phase change
+          if ('vibrate' in navigator) {
+            navigator.vibrate(30);
+          }
         }
       } 
       // In forward swing phase, we track the swing speed
       else if (dragPhase === 'forwardSwing') {
-        // The faster we swing, the more power is added to the base power
-        const speedFactor = Math.min(100, velocity * 100);
-        setSwingSpeed(speedFactor);
+        // The faster we swing, the more power is added
+        // Smoother swing speed calculation with momentum
+        const speedFactor = Math.min(150, velocity * 150);
+        setSwingSpeed(prev => (prev * 0.7) + (speedFactor * 0.3)); // Smooth transition
       }
     }
     
-    // Generate trajectory points
+    // Generate trajectory points - smoother curve with more points
     const points = [];
-    const steps = 10;
+    const steps = 15; // More points for smoother curve
     
     for (let i = 0; i < steps; i++) {
-      // If in pull back phase, trajectory is backward
       if (dragPhase === 'pullBack') {
-        points.push({
-          x: dragStartPos.x + (deltaX * (i+1) / steps),
-          y: dragStartPos.y + (deltaY * (i+1) / steps)
-        });
-      } 
-      // If in forward swing phase, trajectory is forward from current position
-      else {
-        const forwardX = clientX - dragStartPos.x;
-        const forwardY = clientY - dragStartPos.y;
+        // During pullback, show a slight arc for better visualization
+        const t = i / steps;
+        const arcX = dragStartPos.x + (deltaX * t);
+        const arcY = dragStartPos.y + (deltaY * t);
         
-        points.push({
-          x: clientX - (forwardX * (i+1) / steps),
-          y: clientY - (forwardY * (i+1) / steps)
-        });
+        points.push({ x: arcX, y: arcY });
+      } 
+      // If in forward swing phase, trajectory is a natural bowling curve
+      else {
+        // Create a natural bowling curve
+        const t = i / steps;
+        const forwardDeltaX = dragStartPos.x - clientX;
+        const forwardDeltaY = dragStartPos.y - clientY;
+        
+        // Apply a slight arc to the trajectory
+        const arcHeight = Math.min(30, distanceFromStart * 0.3);
+        const arcOffset = Math.sin(t * Math.PI) * arcHeight;
+        
+        const x = clientX + (forwardDeltaX * t * 2);
+        const y = clientY + (forwardDeltaY * t * 2) - arcOffset;
+        
+        points.push({ x, y });
       }
     }
     
@@ -212,6 +230,11 @@ const BowlingGame = () => {
     setBallReleased(true);
     setIsPlaying(true);
     
+    // Add release haptic feedback
+    if ('vibrate' in navigator) {
+      navigator.vibrate([30, 50, 30]);
+    }
+    
     const clientX = 'changedTouches' in e 
       ? e.changedTouches[0].clientX 
       : e.clientX;
@@ -219,18 +242,18 @@ const BowlingGame = () => {
       ? e.changedTouches[0].clientY 
       : e.clientY;
     
-    // Calculate drag vector (now moving forward)
-    const deltaX = clientX - dragStartPos.x;
-    const deltaY = clientY - dragStartPos.y;
+    // Calculate release vector
+    const releaseX = clientX - dragStartPos.x;
+    const releaseY = clientY - dragStartPos.y;
     
-    // Calculate distance and normalize direction for the swing
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const dirX = deltaX / distance;
-    const dirY = deltaY / distance;
+    // Calculate release strength based on swing
+    const releaseDistance = Math.sqrt(releaseX * releaseX + releaseY * releaseY);
+    const dirX = releaseX / releaseDistance;
+    const dirY = releaseY / releaseDistance;
     
-    // Combine pull-back power and swing speed
-    const basePower = powerPercentage;
-    const swingPower = swingSpeed * 0.5; // Reduce swing influence
+    // Combine pull-back power and swing speed with better weighting
+    const basePower = powerPercentage * 0.6; // 60% influence
+    const swingPower = swingSpeed * 0.4; // 40% influence
     const totalPower = Math.min(100, basePower + swingPower);
     
     console.log(`Base power: ${basePower.toFixed(1)}%, Swing power: ${swingPower.toFixed(1)}%, Total: ${totalPower.toFixed(1)}%`);
@@ -257,8 +280,8 @@ const BowlingGame = () => {
     if (speedMs > 0) {
       // Time = distance / speed
       const realWorldTravelTime = REAL_PITCH_LENGTH_METERS / (speedKmh / 3.6);
-      // Scale time for better gameplay (min 1.2s for visibility)
-      scaledTravelTime = Math.max(1.2, realWorldTravelTime / 2);
+      // Scale time for better gameplay (min 0.8s for visibility, max 2s)
+      scaledTravelTime = Math.max(0.8, Math.min(2, realWorldTravelTime / 2));
     }
     
     console.log(`Bowling speed: ${speedKmh.toFixed(1)} km/h, Scaled speed: ${scaledSpeedKmh.toFixed(1)} km/h, Travel time: ${scaledTravelTime.toFixed(2)}s`);
@@ -270,18 +293,19 @@ const BowlingGame = () => {
     if (fieldRect) {
       const fieldCenterX = fieldRect.left + fieldRect.width / 2;
       const horizontalDeviation = Math.abs(clientX - fieldCenterX);
-      accuracy = Math.max(0, 100 - (horizontalDeviation / (fieldRect.width / 2) * 100));
+      accuracy = Math.max(0, 100 - (horizontalDeviation / (fieldRect.width / 4) * 100));
     }
     
-    // Animate the ball along the calculated trajectory
+    // Animate the ball with a natural arc
     controls.start({
       x: [0, dirX * 200],
-      y: [0, dirY * 200],
+      y: [0, dirY * 200 - 50, dirY * 200], // Add a subtle arc
+      scale: [1, 0.8, 1],
       rotate: [0, 720],
       transition: { 
         duration: scaledTravelTime, 
-        ease: "linear",
-        times: [0, 1]
+        ease: "easeOut",
+        times: [0, 0.7, 1] // Control timing of the arc
       }
     }).then(() => {
       // Save performance metrics after ball is bowled
@@ -355,7 +379,7 @@ const BowlingGame = () => {
             </div>
           ) : null}
           
-          {/* Trajectory prediction line */}
+          {/* Trajectory prediction line - improved visuals */}
           {showTrajectory && trajectoryPoints.length > 0 && (
             <>
               {trajectoryPoints.map((point, i) => {
@@ -367,10 +391,12 @@ const BowlingGame = () => {
                 return (
                   <div 
                     key={i}
-                    className="absolute w-3 h-3 bg-white/50 rounded-full"
+                    className="absolute bg-white/50 rounded-full"
                     style={{ 
                       left: `${relX}%`, 
                       top: `${relY}%`,
+                      width: `${4 - (i * 0.2)}px`,
+                      height: `${4 - (i * 0.2)}px`,
                       opacity: 1 - (i / trajectoryPoints.length),
                       transform: 'translate(-50%, -50%)'
                     }}
@@ -380,11 +406,11 @@ const BowlingGame = () => {
             </>
           )}
           
-          {/* Ball in starting position */}
+          {/* Ball in starting position - smoother drag handling */}
           {gameStarted && !isPlaying && !ballReleased && (
             <div
               ref={ballRef}
-              className="absolute bottom-[10%] left-1/2 transform -translate-x-1/2 z-10"
+              className="absolute bottom-[10%] left-1/2 transform -translate-x-1/2 z-10 touch-none"
               onMouseDown={handleDragStart}
               onTouchStart={handleDragStart}
               onMouseMove={(e) => handleDrag(e)}
@@ -396,27 +422,27 @@ const BowlingGame = () => {
               <CricketBall 
                 animated={isDragging}
                 trailEffect={dragPhase === 'forwardSwing'}
-                size={isDragging ? "large" : "medium"}
+                size={isDragging ? "medium" : "small"}
                 glowColor={
                   dragPhase === 'pullBack' 
                     ? "rgba(255,165,0,0.7)" // Orange for pull back
                     : dragPhase === 'forwardSwing' 
                       ? "rgba(0,255,0,0.7)" // Green for forward swing
-                      : "rgba(255,0,0,0.7)" // Default red
+                      : "rgba(255,0,0,0.5)" // Default red
                 }
                 className={`
                   ${isDragging ? 'scale-110' : ''} 
-                  transition-transform
+                  transition-all duration-200
                 `}
               />
               
-              {/* Power and Swing meters */}
+              {/* Enhanced Power and Swing meters */}
               {isDragging && (
-                <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-48 flex flex-col items-center gap-2">
+                <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 w-40 flex flex-col items-center gap-1.5">
                   {/* Pull back power meter */}
                   <div className="flex items-center w-full">
-                    <span className="text-white text-xs mr-2">Pull:</span>
-                    <div className="flex-1 h-3 bg-white/30 rounded-full overflow-hidden">
+                    <span className="text-white text-xs mr-1.5 opacity-80 font-medium whitespace-nowrap">Pull:</span>
+                    <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden">
                       <motion.div 
                         className="h-full" 
                         style={{
@@ -427,14 +453,17 @@ const BowlingGame = () => {
                               ? 'rgb(250, 204, 21)' 
                               : 'rgb(239, 68, 68)'
                         }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${powerPercentage}%` }}
+                        transition={{ type: 'spring', damping: 15 }}
                       />
                     </div>
                   </div>
                   
                   {/* Swing speed meter */}
                   <div className="flex items-center w-full">
-                    <span className="text-white text-xs mr-2">Swing:</span>
-                    <div className="flex-1 h-3 bg-white/30 rounded-full overflow-hidden">
+                    <span className="text-white text-xs mr-1.5 opacity-80 font-medium whitespace-nowrap">Swing:</span>
+                    <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden">
                       <motion.div 
                         className="h-full" 
                         style={{
@@ -445,22 +474,30 @@ const BowlingGame = () => {
                               ? 'rgb(250, 204, 21)' 
                               : 'rgb(239, 68, 68)'
                         }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${swingSpeed}%` }}
+                        transition={{ type: 'spring', damping: 10 }}
                       />
                     </div>
+                  </div>
+                  
+                  {/* Phase indicator */}
+                  <div className="text-xs text-white bg-black/40 px-2 py-1 rounded-full mt-1">
+                    {dragPhase === 'pullBack' ? 'Pull Back ⬅️' : 'Swing Forward ➡️'}
                   </div>
                 </div>
               )}
               
-              {/* Instruction text */}
+              {/* Clearer instruction text */}
               {!isDragging && (
-                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-white text-center text-sm bg-black/40 px-2.5 py-1.5 rounded-lg">
-                  Pull back then swing forward to bowl
+                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-white text-center text-sm bg-black/60 px-2.5 py-1.5 rounded-lg">
+                  Pull back ⬅️ then swing forward ➡️
                 </div>
               )}
             </div>
           )}
           
-          {/* Animated ball after release */}
+          {/* Animated ball after release - smaller size, better trail */}
           {ballReleased && (
             <motion.div 
               className="absolute bottom-[10%] left-1/2 transform -translate-x-1/2 z-10"
@@ -469,7 +506,7 @@ const BowlingGame = () => {
               <CricketBall 
                 animated={true} 
                 trailEffect={true}
-                size="medium"
+                size="small"
               />
             </motion.div>
           )}
