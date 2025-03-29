@@ -8,7 +8,7 @@ interface CricketBallProps {
   speed?: 'slow' | 'medium' | 'fast';
   onClick?: () => void;
   animated?: boolean;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'tiny' | 'small' | 'medium' | 'large';
   trailEffect?: boolean;
   glowColor?: string;
 }
@@ -18,12 +18,13 @@ const CricketBall: React.FC<CricketBallProps> = ({
   speed = 'medium', 
   onClick,
   animated = false,
-  size = 'medium',
+  size = 'small',
   trailEffect = false,
   glowColor = "rgba(255,0,0,0.7)"
 }) => {
-  // Size mapping for different ball sizes
+  // Size mapping for different ball sizes - added 'tiny' for stick cricket
   const sizeMap = {
+    tiny: "w-3 h-3",
     small: "w-6 h-6",
     medium: "w-8 h-8",
     large: "w-10 h-10"

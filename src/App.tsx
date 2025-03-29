@@ -9,6 +9,7 @@ import BattingGame from "./pages/BattingGame";
 import BowlingGame from "./pages/BowlingGame";
 import ResultsPage from "./pages/ResultsPage";
 import NotFound from "./pages/NotFound";
+import StickCricketGame from "./pages/StickCricketGame";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/play/batting/:difficulty" element={<BattingGame />} />
           <Route path="/play/bowling/:difficulty" element={<BowlingGame />} />
+          <Route path="/play/stick-cricket" element={<StickCricketGame />} />
           <Route path="/results/:gameMode" element={<ResultsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
